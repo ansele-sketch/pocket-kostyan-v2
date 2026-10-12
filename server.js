@@ -244,6 +244,148 @@ async function handleTelegramUpdate(update) {
 
   const text = message.text.trim();
 
+  const normalized = text.toLowerCase();
+
+  let reply;
+
+  // Команды бота
+
+  if (/^\/(start|game)(@\w+)?(\s|$)/i.test(text)) {
+
+    reply =
+
+      "🗿 ЗДАРОВА, БРАТАН!\n\n" +
+
+      "Я — Карманный Костян!\n\n" +
+
+      "🏃 Убегай от Макензи.\n" +
+
+      "💪 Качай меня.\n" +
+
+      "🍔 Корми меня.\n" +
+
+      "😂 Слушай мои легендарные отмазки.\n\n" +
+
+      "Ну чё стоишь? Погнали играть!";
+
+  } else if (/^\/help(@\w+)?(\s|$)/i.test(text)) {
+
+    reply =
+
+      "🤝 Я — Карманный Костян!\n\n" +
+
+      "Жми «Играть», чтобы открыть игру. Напиши мне — поболтаем!";
+
+  }
+
+  // Фирменные реакции — проверяются до ИИ
+
+  else if (/ты где|где ты|выходи|долго ещё|долго еще/.test(normalized)) {
+
+    reply = "Братан, я уже выхожу! 😂 Осталось найти второй кроссовок.";
+
+  } else if (/макензи/.test(normalized)) {
+
+    reply = "БЛЯТЬ, МАКЕНЗИ?! 🏃💨 БРАТАН, ВАЛИМ ОТСЮДА!";
+
+  } else if (/качалка|тренировка|спорт|пошли в зал/.test(normalized)) {
+
+    reply = "МЯСО! 💪 Я уже размялся. Ну... морально.";
+
+  } else if (/как дела|как сам|чё как|че как|что нового/.test(normalized)) {
+
+    reply = "Да братан! 😂 Жизнь — мясо. А у тебя чё?";
+
+  } else if (/привет|здарова|салам/.test(normalized)) {
+
+    reply = "О, БРАТАН, ЗДАРОВА! 🗿 Ну чё, какой сегодня движ?";
+
+  } else if (/бургер|голоден|хочу есть|покушать/.test(normalized)) {
+
+    reply = "🍔 БРАТАН, СРОЧНО НЕСИ БУРГЕР! Я уже вижу его во сне.";
+
+  } else if (/грустно|плохо|устал/.test(normalized)) {
+
+    reply = "Братан, держись. 🫂 Рассказывай, что случилось. Я слушаю.";
+
+  }
+
+  // Если нет специальной реакции — пробуем ИИ
+
+  if (!reply && client) {
+
+    try {
+
+      const response = await client.responses.create({
+
+        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+
+        instructions: systemPrompt,
+
+        input: text,
+
+        max_output_tokens: 180
+
+      });
+
+      reply = response.output_text;
+
+    } catch (error) {
+
+      console.error("Telegram AI error:", error?.message || error);
+
+    }
+
+  }
+
+  // Резервный ответ, если ИИ недоступен
+
+  if (!reply) {
+
+    reply = "Да братан! 😂 Чё рассказываешь?";
+
+  }
+
+  const result = await telegramRequest("sendMessage", {
+
+    chat_id: chatId,
+
+    text: reply,
+
+    reply_markup: {
+
+      inline_keyboard: [[
+
+        {
+
+          text: "🎮 Играть",
+
+          web_app: { url: GAME_URL }
+
+        }
+
+      ]]
+
+    }
+
+  });
+
+  if (!result.ok) {
+
+    console.error("Telegram sendMessage error:", result.description);
+
+  }
+
+}
+
+  const message = update.message;
+
+  if (!message?.chat || !message.text) return;
+
+  const chatId = message.chat.id;
+
+  const text = message.text.trim();
+
   let reply;
 
   if (client && !text.startsWith("/")) {
