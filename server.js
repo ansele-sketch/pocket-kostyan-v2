@@ -192,13 +192,15 @@ async function generateAIReply(text) {
 
     return getLocalReply(text);
 
-  } catch (error) {
+ } catch (error) {
 
-    console.error("Mistral AI error:", error?.message || error);
+  console.error("MISTRAL ERROR:", error?.status || "", error?.message || error);
 
-    return getLocalReply(text);
+  return "Братан, мой ИИ завис! 😂 Ошибка: " +
 
-  }
+    (error?.status || "unknown") + ". Загляни в Render Logs.";
+
+}
 
 }
 
