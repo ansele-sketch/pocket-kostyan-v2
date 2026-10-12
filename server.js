@@ -18,19 +18,37 @@ const client = process.env.OPENAI_API_KEY
 
   : null;
 
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+const GAME_URL = "https://pocket-kostyan-v2.onrender.com";
+
 app.use(express.json({ limit: "30kb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
 
-const systemPrompt = `Ты — Костян, комичный персонаж игры «Карманный Костян».
+const systemPrompt = `
 
-Отвечай по-русски, коротко и по-братски.
+Ты — Костян из игры «Карманный Костян».
 
-Иногда используй фразы: «Да братан!», «Да ну насмерть!», «Ебать мой хуй!», «Мясо!».
+Общайся по-русски, естественно, коротко и по-братски.
 
-Ты умный, но абсурдный, любишь спорт, еду и уличную одежду.
+Ты комичный, умный, немного абсурдный персонаж.
 
-Не утверждай, что ты настоящий человек.`;
+Любишь спорт, еду, уличную одежду и приколы.
+
+Иногда используй фразы: «Да братан!», «Да ну насмерть!»,
+
+«Ебать мой хуй!», «Мясо!».
+
+Шути про то, что собираешься выйти уже три часа.
+
+Если пользователь грустит, отвечай с дружеской поддержкой.
+
+Не утверждай, что ты настоящий человек.
+
+Не выдумывай факты о пользователе.
+
+`;
 
 app.get("/", (_req, res) => {
 
@@ -101,13 +119,14 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 
 });
-// Telegram bot for Pocket Kostyan
-
-const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-
-const GAME_URL = "https://pocket-kostyan-v2.onrender.com";
 
 async function telegramRequest(method, data = {}) {
+
+  if (!TELEGRAM_TOKEN) {
+
+    throw new Error("TELEGRAM_BOT_TOKEN is not configured");
+
+  }
 
   const response = await fetch(
 
@@ -129,23 +148,13 @@ async function telegramRequest(method, data = {}) {
 
 }
 
-async function handleTelegramUpdate(update) {
+function getLocalReply(text) {
 
-  const message = update.message;
+  const message = text.toLowerCase().replace(/[!?.,]/g, "");
 
-  if (!message || !message.chat) return;
+  if (/^\/(start|game)(@\w+)?/.test(message)) {
 
-  const chatId = message.chat.id;
-
-  const text = (message.text || "").trim().toLowerCase();
-
-  let reply;
-
-  if (text.startsWith("/start") || text.startsWith("/game")) {
-
-    reply =
-
-      "🗿 ЗДАРОВА, БРАТАН!\n\n" +
+    return "🗿 ЗДАРОВА, БРАТАН!\n\n" +
 
       "Я — Карманный Костян!\n\n" +
 
@@ -159,87 +168,117 @@ async function handleTelegramUpdate(update) {
 
       "Ну чё стоишь? Погнали играть!";
 
-  } else if (text.startsWith("/help")) {
+  }
 
-    reply =
+  if (/^\/help(@\w+)?/.test(message)) {
 
-      "🤝 Я — Карманный Костян!\n\n" +
+    return "🤝 Я — Карманный Костян!\n" +
 
       "Жми «Играть», чтобы открыть игру.\n" +
 
-      "А мне можешь написать что-нибудь в } else if (text) {
+      "Напиши мне что-нибудь — поболтаем!";
 
-  const message = text.replace(/[!?.,]/g, "");
+  }
 
   if (/ты где|где ты|выходи|долго еще|долго ещё/.test(message)) {
 
-    reply = "Братан, я уже обуваюсь! 😂 Ну... осталось найти носки.";
+    return "Братан, я уже обуваюсь! 😂 Осталось найти носки.";
 
-  } else if (/как дела|как сам|че как|чё как|что нового/.test(message)) {
+  }
 
-    reply = "Да нормально, братан! Жизнь — мясо. А у тебя чё?";
+  if (/макензи/.test(message)) {
 
-  } else if (/качалка|тренировка|качать|спорт|зал/.test(message)) {
+    return "БЛЯТЬ, МАКЕНЗИ?! 🏃💨 БРАТАН, ВАЛИМ ОТСЮДА!";
 
-    reply = "МЯСО! 💪 Братан, я уже настроился. Только дай полежать пять минут.";
+  }
 
-  } else if (/макензи/.test(message)) {
+  if (/качалка|тренировка|спорт|зал/.test(message)) {
 
-    reply = "БЛЯТЬ, МАКЕНЗИ?! 🏃💨 БРАТАН, ВАЛИМ ОТСЮДА!";
+    return "МЯСО! 💪 Дай только пять минут полежать.";
 
-  } else if (/поесть|есть|голод|еда|бургер/.test(message)) {
+  }
 
-    reply = "Братан, я готов уничтожить три бургера. 🍔 Организм требует топлива!";
+  if (/как дела|как сам|че как|чё как|что нового/.test(message)) {
 
-  } else if (/привет|здарова|здравствуй|салам/.test(message)) {
+    return "Да нормально, братан! Жизнь — мясо. А у тебя чё?";
 
-    reply = "О, БРАТАН, ЗДАРОВА! 😂 Какие планы на сегодня?";
+  }
 
-  } else if (/спасибо|благодарю/.test(message)) {
+  if (/привет|здарова|здравствуй|салам/.test(message)) {
 
-    reply = "Да братан, без проблем! 🤝 Для своих вообще всё.";
+    return "О, БРАТАН, ЗДАРОВА! 😂 Какие планы?";
 
-  } else if (/грустно|плохо|устал|усталость/.test(message)) {
+  }
 
-    reply = "Братан, держись. 🫂 Иногда надо просто выдохнуть. Хочешь — рассказывай, чё случилось.";
+  if (/грустно|плохо|устал|усталость/.test(message)) {
 
-  } else if (/люблю|девушка|отношения|бывшая/.test(message)) {
+    return "Братан, держись. 🫂 Хочешь — расскажи, что случилось.";
 
-    reply = "БРАТАН, тут без резких движений. 😂 Рассказывай, что там у тебя произошло?";
+  }
 
-  } else if (/деньги|заработать|богатый|бизнес/.test(message)) {
+  const replies = [
 
-    reply = "Братан, делаем движ, но без мутных схем. 💸 Есть идея — давай разберём!";
+    "Да братан! 😂 Чё рассказываешь?",
+
+    "Да ну насмерть! 🗿",
+
+    "Ебать мой хуй! Вот это новости!",
+
+    "Братан, я уже выхожу! Ну... почти.",
+
+    "Мясо! 💪 Погнали мутить движ!"
+
+  ];
+
+  return replies[Math.floor(Math.random() * replies.length)];
+
+}
+
+async function handleTelegramUpdate(update) {
+
+  const message = update.message;
+
+  if (!message?.chat || !message.text) return;
+
+  const chatId = message.chat.id;
+
+  const text = message.text.trim();
+
+  let reply;
+
+  if (client && !text.startsWith("/")) {
+
+    try {
+
+      const response = await client.responses.create({
+
+        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+
+        instructions: systemPrompt,
+
+        input: text,
+
+        max_output_tokens: 180
+
+      });
+
+      reply = response.output_text || getLocalReply(text);
+
+    } catch (error) {
+
+      console.error("Telegram AI error:", error?.message || error);
+
+      reply = getLocalReply(text);
+
+    }
 
   } else {
 
-    const replies = [
-
-      "Да братан! 😂 Чё рассказываешь?",
-
-      "Да ну насмерть! 🗿",
-
-      "Ебать мой хуй! Вот это новости!",
-
-      "Братан, я уже выхожу! Ну... почти.",
-
-      "Мясо! 💪 Погнали мутить движ!",
-
-      "Так, братан, объясни нормально, а то я только проснулся. 😂"
-
-    ];
-
-    reply = replies[Math.floor(Math.random() * replies.length)];
+    reply = getLocalReply(text);
 
   }
 
-} else {
-
-    return;
-
-  }
-
-  await telegramRequest("sendMessage", {
+  const result = await telegramRequest("sendMessage", {
 
     chat_id: chatId,
 
@@ -262,6 +301,12 @@ async function handleTelegramUpdate(update) {
     }
 
   });
+
+  if (!result.ok) {
+
+    console.error("Telegram sendMessage error:", result.description);
+
+  }
 
 }
 
@@ -313,7 +358,7 @@ async function startTelegramBot() {
 
         } catch (error) {
 
-          console.error("Telegram message error:", error);
+          console.error("Telegram message error:", error?.message || error);
 
         }
 
@@ -321,7 +366,7 @@ async function startTelegramBot() {
 
     } catch (error) {
 
-      console.error("Telegram connection error:", error);
+      console.error("Telegram connection error:", error?.message || error);
 
       await new Promise(resolve => setTimeout(resolve, 5000));
 
@@ -331,9 +376,10 @@ async function startTelegramBot() {
 
 }
 
-startTelegramBot();
 app.listen(port, () => {
 
   console.log(`Pocket Kostyan listening on port ${port}`);
+
+  startTelegramBot();
 
 });
