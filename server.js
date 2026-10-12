@@ -101,7 +101,191 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 
 });
+// Telegram bot for Pocket Kostyan
 
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+const GAME_URL = "https://pocket-kostyan-v2.onrender.com";
+
+async function telegramRequest(method, data = {}) {
+
+  const response = await fetch(
+
+    `https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`,
+
+    {
+
+      method: "POST",
+
+      headers: { "Content-Type": "application/json" },
+
+      body: JSON.stringify(data)
+
+    }
+
+  );
+
+  return response.json();
+
+}
+
+async function handleTelegramUpdate(update) {
+
+  const message = update.message;
+
+  if (!message || !message.chat) return;
+
+  const chatId = message.chat.id;
+
+  const text = (message.text || "").trim().toLowerCase();
+
+  let reply;
+
+  if (text.startsWith("/start") || text.startsWith("/game")) {
+
+    reply =
+
+      "🗿 ЗДАРОВА, БРАТАН!\n\n" +
+
+      "Я — Карманный Костян!\n\n" +
+
+      "🏃 Убегай от Макензи.\n" +
+
+      "💪 Качай меня.\n" +
+
+      "🍔 Корми меня.\n" +
+
+      "😂 Слушай мои легендарные отмазки.\n\n" +
+
+      "Ну чё стоишь? Погнали играть!";
+
+  } else if (text.startsWith("/help")) {
+
+    reply =
+
+      "🤝 Я — Карманный Костян!\n\n" +
+
+      "Жми «Играть», чтобы открыть игру.\n" +
+
+      "А мне можешь написать что-нибудь в сообщении.";
+
+  } else if (text) {
+
+    const replies = [
+
+      "Да братан! 😂 Чё рассказываешь?",
+
+      "Да ну насмерть! 🗿",
+
+      "Ебать мой хуй! Вот это новости!",
+
+      "Братан, я уже выхожу! Ну... почти.",
+
+      "Мясо! 💪 Погнали мутить движ!"
+
+    ];
+
+    reply = replies[Math.floor(Math.random() * replies.length)];
+
+  } else {
+
+    return;
+
+  }
+
+  await telegramRequest("sendMessage", {
+
+    chat_id: chatId,
+
+    text: reply,
+
+    reply_markup: {
+
+      inline_keyboard: [[
+
+        {
+
+          text: "🎮 Играть",
+
+          web_app: { url: GAME_URL }
+
+        }
+
+      ]]
+
+    }
+
+  });
+
+}
+
+async function startTelegramBot() {
+
+  if (!TELEGRAM_TOKEN) {
+
+    console.log("Telegram bot: token not configured");
+
+    return;
+
+  }
+
+  console.log("Telegram bot: starting");
+
+  let offset = 0;
+
+  while (true) {
+
+    try {
+
+      const result = await telegramRequest("getUpdates", {
+
+        offset,
+
+        timeout: 50,
+
+        allowed_updates: ["message"]
+
+      });
+
+      if (!result.ok) {
+
+        console.error("Telegram polling error:", result.description);
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        continue;
+
+      }
+
+      for (const update of result.result) {
+
+        offset = update.update_id + 1;
+
+        try {
+
+          await handleTelegramUpdate(update);
+
+        } catch (error) {
+
+          console.error("Telegram message error:", error);
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.error("Telegram connection error:", error);
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+    }
+
+  }
+
+}
+
+startTelegramBot();
 app.listen(port, () => {
 
   console.log(`Pocket Kostyan listening on port ${port}`);
